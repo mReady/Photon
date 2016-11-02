@@ -10,23 +10,24 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Feather {
-    private final Map<Key, Provider<?>> providers = new ConcurrentHashMap<>();
-    private final Map<Key, Object> singletons = new ConcurrentHashMap<>();
-    private final Map<Class, Object[][]> injectFields = new ConcurrentHashMap<>(0);
-
     /**
-     * Constructs Feather with configuration modules
+     * Constructs the injector with configuration modules
      */
     public static Feather with(Object... modules) {
-        return new Feather(Arrays.asList(modules));
+        return with(Arrays.asList(modules));
     }
 
     /**
-     * Constructs Feather with configuration modules
+     * Constructs the injector with configuration modules
      */
     public static Feather with(Iterable<?> modules) {
         return new Feather(modules);
     }
+
+
+    private final Map<Key, Provider<?>> providers = new ConcurrentHashMap<>();
+    private final Map<Key, Object> singletons = new ConcurrentHashMap<>();
+    private final Map<Class, Object[][]> injectFields = new ConcurrentHashMap<>(0);
 
     private Feather(Iterable<?> modules) {
         providers.put(Key.of(Feather.class), new Provider() {
@@ -36,12 +37,13 @@ public class Feather {
                     }
                 }
         );
+
         for (final Object module : modules) {
             if (module instanceof Class) {
                 throw new FeatherException(String.format("%s provided as class instead of an instance.", ((Class) module).getName()));
             }
-            for (Method providerMethod : providers(module.getClass())) {
-                providerMethod(module, providerMethod);
+            for (Method providerMethod : findProviderMethods(module.getClass())) {
+                registerProviderMethod(module, providerMethod);
             }
         }
     }
@@ -50,28 +52,28 @@ public class Feather {
      * @return an instance of type
      */
     public <T> T instance(Class<T> type) {
-        return provider(Key.of(type), null).get();
+        return getProvider(Key.of(type), null).get();
     }
 
     /**
      * @return instance specified by key (type and qualifier)
      */
     public <T> T instance(Key<T> key) {
-        return provider(key, null).get();
+        return getProvider(key, null).get();
     }
 
     /**
      * @return provider of type
      */
     public <T> Provider<T> provider(Class<T> type) {
-        return provider(Key.of(type), null);
+        return getProvider(Key.of(type), null);
     }
 
     /**
      * @return provider of key (type, qualifier)
      */
     public <T> Provider<T> provider(Key<T> key) {
-        return provider(key, null);
+        return getProvider(key, null);
     }
 
     /**
@@ -87,21 +89,30 @@ public class Feather {
             try {
                 field.set(target, (boolean) f[1] ? provider(key) : instance(key));
             } catch (Exception e) {
-                throw new FeatherException(String.format("Can't inject field %s in %s", field.getName(), target.getClass().getName()));
+                throw new FeatherException(String.format("Can't inject field %s in %s",
+                        field.getName(),
+                        target.getClass().getName()), e);
             }
         }
     }
 
     @SuppressWarnings("unchecked")
-    private <T> Provider<T> provider(final Key<T> key, Set<Key> chain) {
+    private <T> Provider<T> getProvider(final Key<T> key, Set<Key> chain) {
         if (!providers.containsKey(key)) {
-            final Constructor constructor = constructor(key);
-            final Provider<?>[] paramProviders = paramProviders(key, constructor.getParameterTypes(), constructor.getGenericParameterTypes(), constructor.getParameterAnnotations(), chain);
+
+            final Constructor constructor = findInjectableConstructor(key);
+
+            final Provider<?>[] paramProviders = getParamProviders(key,
+                    constructor.getParameterTypes(),
+                    constructor.getGenericParameterTypes(),
+                    constructor.getParameterAnnotations(),
+                    chain);
+
             providers.put(key, singletonProvider(key, key.type.getAnnotation(Singleton.class), new Provider() {
                         @Override
                         public Object get() {
                             try {
-                                return constructor.newInstance(params(paramProviders));
+                                return constructor.newInstance(generateParams(paramProviders));
                             } catch (Exception e) {
                                 throw new FeatherException(String.format("Can't instantiate %s", key.toString()), e);
                             }
@@ -112,13 +123,15 @@ public class Feather {
         return (Provider<T>) providers.get(key);
     }
 
-    private void providerMethod(final Object module, final Method m) {
-        final Key key = Key.of(m.getReturnType(), qualifier(m.getAnnotations()));
+    private void registerProviderMethod(final Object module, final Method m) {
+        final Key key = Key.of(m.getReturnType(), findQualifier(m.getAnnotations()));
         if (providers.containsKey(key)) {
             throw new FeatherException(String.format("%s has multiple providers, module %s", key.toString(), module.getClass()));
         }
-        Singleton singleton = m.getAnnotation(Singleton.class) != null ? m.getAnnotation(Singleton.class) : m.getReturnType().getAnnotation(Singleton.class);
-        final Provider<?>[] paramProviders = paramProviders(
+        Singleton singleton = m.getAnnotation(Singleton.class) != null ? m.getAnnotation(Singleton.class)
+                : m.getReturnType().getAnnotation(Singleton.class);
+
+        final Provider<?>[] paramProviders = getParamProviders(
                 key,
                 m.getParameterTypes(),
                 m.getGenericParameterTypes(),
@@ -129,7 +142,7 @@ public class Feather {
                     @Override
                     public Object get() {
                         try {
-                            return m.invoke(module, params(paramProviders));
+                            return m.invoke(module, generateParams(paramProviders));
                         } catch (Exception e) {
                             throw new FeatherException(String.format("Can't instantiate %s with provider", key.toString()), e);
                         }
@@ -156,30 +169,26 @@ public class Feather {
         } : provider;
     }
 
-    private Provider<?>[] paramProviders(
-            final Key key,
-            Class<?>[] parameterClasses,
-            Type[] parameterTypes,
-            Annotation[][] annotations,
-            final Set<Key> chain
-    ) {
-        Provider<?>[] providers = new Provider<?>[parameterTypes.length];
-        for (int i = 0; i < parameterTypes.length; ++i) {
-            Class<?> parameterClass = parameterClasses[i];
-            Annotation qualifier = qualifier(annotations[i]);
+    private Provider<?>[] getParamProviders(final Key key,
+                                            Class<?>[] paramClasses, Type[] paramTypes, Annotation[][] paramAnnotations,
+                                            final Set<Key> chain) {
+        Provider<?>[] providers = new Provider<?>[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; ++i) {
+            Class<?> parameterClass = paramClasses[i];
+            Annotation qualifier = findQualifier(paramAnnotations[i]);
             Class<?> providerType = Provider.class.equals(parameterClass) ?
-                    (Class<?>) ((ParameterizedType) parameterTypes[i]).getActualTypeArguments()[0] :
+                    (Class<?>) ((ParameterizedType) paramTypes[i]).getActualTypeArguments()[0] :
                     null;
             if (providerType == null) {
                 final Key newKey = Key.of(parameterClass, qualifier);
-                final Set<Key> newChain = append(chain, key);
+                final Set<Key> newChain = appendKey(chain, key);
                 if (newChain.contains(newKey)) {
-                    throw new FeatherException(String.format("Circular dependency: %s", chain(newChain, newKey)));
+                    throw new FeatherException(String.format("Circular dependency: %s", renderChain(newChain, newKey)));
                 }
                 providers[i] = new Provider() {
                     @Override
                     public Object get() {
-                        return provider(newKey, newChain).get();
+                        return getProvider(newKey, newChain).get();
                     }
                 };
             } else {
@@ -187,7 +196,7 @@ public class Feather {
                 providers[i] = new Provider() {
                     @Override
                     public Object get() {
-                        return provider(newKey, null);
+                        return getProvider(newKey, null);
                     }
                 };
             }
@@ -195,7 +204,7 @@ public class Feather {
         return providers;
     }
 
-    private static Object[] params(Provider<?>[] paramProviders) {
+    private static Object[] generateParams(Provider<?>[] paramProviders) {
         Object[] params = new Object[paramProviders.length];
         for (int i = 0; i < paramProviders.length; ++i) {
             params[i] = paramProviders[i].get();
@@ -203,7 +212,7 @@ public class Feather {
         return params;
     }
 
-    private static Set<Key> append(Set<Key> set, Key newKey) {
+    private static Set<Key> appendKey(Set<Key> set, Key newKey) {
         if (set != null && !set.isEmpty()) {
             Set<Key> appended = new LinkedHashSet<>(set);
             appended.add(newKey);
@@ -214,7 +223,7 @@ public class Feather {
     }
 
     private static Object[][] injectFields(Class<?> target) {
-        Set<Field> fields = fields(target);
+        Set<Field> fields = findInjectableFields(target);
         Object[][] fs = new Object[fields.size()][];
         int i = 0;
         for (Field f : fields) {
@@ -224,13 +233,13 @@ public class Feather {
             fs[i++] = new Object[]{
                     f,
                     providerType != null,
-                    Key.of(providerType != null ? providerType : f.getType(), qualifier(f.getAnnotations()))
+                    Key.of(providerType != null ? providerType : f.getType(), findQualifier(f.getAnnotations()))
             };
         }
         return fs;
     }
 
-    private static Set<Field> fields(Class<?> type) {
+    private static Set<Field> findInjectableFields(Class<?> type) {
         Class<?> current = type;
         Set<Field> fields = new HashSet<>();
         while (!current.equals(Object.class)) {
@@ -245,7 +254,7 @@ public class Feather {
         return fields;
     }
 
-    private static String chain(Set<Key> chain, Key lastKey) {
+    private static String renderChain(Set<Key> chain, Key lastKey) {
         StringBuilder chainString = new StringBuilder();
         for (Key key : chain) {
             chainString.append(key.toString()).append(" -> ");
@@ -253,9 +262,10 @@ public class Feather {
         return chainString.append(lastKey.toString()).toString();
     }
 
-    private static Constructor constructor(Key key) {
+    private static Constructor findInjectableConstructor(Key key) {
         Constructor inject = null;
         Constructor noarg = null;
+
         for (Constructor c : key.type.getDeclaredConstructors()) {
             if (c.isAnnotationPresent(Inject.class)) {
                 if (inject == null) {
@@ -267,21 +277,24 @@ public class Feather {
                 noarg = c;
             }
         }
+
         Constructor constructor = inject != null ? inject : noarg;
+
         if (constructor != null) {
             constructor.setAccessible(true);
             return constructor;
         } else {
-            throw new FeatherException(String.format("%s doesn't have an @Inject or no-arg constructor, or a module provider", key.type.getName()));
+            throw new FeatherException(String.format("%s doesn't have an @Inject or no-arg constructor, or a module provider",
+                    key.type.getName()));
         }
     }
 
-    private static Set<Method> providers(Class<?> type) {
+    private static Set<Method> findProviderMethods(Class<?> type) {
         Class<?> current = type;
         Set<Method> providers = new HashSet<>();
         while (!current.equals(Object.class)) {
             for (Method method : current.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(Provides.class) && (type.equals(current) || !providerInSubClass(method, providers))) {
+                if (method.isAnnotationPresent(Provides.class) && (type.equals(current) || !containsMethod(providers, method))) {
                     method.setAccessible(true);
                     providers.add(method);
                 }
@@ -291,7 +304,7 @@ public class Feather {
         return providers;
     }
 
-    private static Annotation qualifier(Annotation[] annotations) {
+    private static Annotation findQualifier(Annotation[] annotations) {
         for (Annotation annotation : annotations) {
             if (annotation.annotationType().isAnnotationPresent(Qualifier.class)) {
                 return annotation;
@@ -300,12 +313,14 @@ public class Feather {
         return null;
     }
 
-    private static boolean providerInSubClass(Method method, Set<Method> discoveredMethods) {
+    private static boolean containsMethod(Set<Method> discoveredMethods, Method method) {
         for (Method discovered : discoveredMethods) {
-            if (discovered.getName().equals(method.getName()) && Arrays.equals(method.getParameterTypes(), discovered.getParameterTypes())) {
+            if (discovered.getName().equals(method.getName()) && Arrays.equals(method.getParameterTypes(),
+                    discovered.getParameterTypes())) {
                 return true;
             }
         }
         return false;
     }
+
 }
