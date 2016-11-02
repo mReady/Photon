@@ -4,7 +4,6 @@ import org.junit.Test;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
-import javax.inject.Singleton;
 
 import static org.junit.Assert.assertNotNull;
 

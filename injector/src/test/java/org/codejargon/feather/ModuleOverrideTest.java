@@ -2,8 +2,6 @@ package org.codejargon.feather;
 
 import org.junit.Test;
 
-import javax.inject.Inject;
-
 import static org.junit.Assert.assertEquals;
 
 public class ModuleOverrideTest {
@@ -49,8 +47,6 @@ public class ModuleOverrideTest {
             return "bar";
         }
     }
-
-
 
 
 }

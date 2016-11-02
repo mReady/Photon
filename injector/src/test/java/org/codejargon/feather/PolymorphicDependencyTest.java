@@ -16,12 +16,14 @@ public class PolymorphicDependencyTest {
     }
 
     public static class Module {
-        @Provides @Named("A")
+        @Provides
+        @Named("A")
         Foo a(FooA fooA) {
             return fooA;
         }
 
-        @Provides @Named("B")
+        @Provides
+        @Named("B")
         Foo a(FooB fooB) {
             return fooB;
         }

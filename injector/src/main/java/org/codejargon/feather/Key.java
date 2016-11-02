@@ -4,6 +4,7 @@ import javax.inject.Named;
 import java.lang.annotation.Annotation;
 
 public class Key<T> {
+
     final Class<T> type;
     final Class<? extends Annotation> qualifier;
     final String name;
@@ -36,7 +37,7 @@ public class Key<T> {
     }
 
     static <T> Key<T> of(Class<T> type, Annotation qualifier) {
-        if(qualifier == null) {
+        if (qualifier == null) {
             return Key.of(type);
         } else {
             return qualifier.annotationType().equals(Named.class) ?
@@ -71,6 +72,5 @@ public class Key<T> {
         String suffix = name != null ? "@\"" + name + "\"" : qualifier != null ? "@" + qualifier.getSimpleName() : "";
         return type.getName() + suffix;
     }
-
 
 }
