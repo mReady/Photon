@@ -108,27 +108,35 @@ public class Feather {
                     constructor.getParameterAnnotations(),
                     chain);
 
-            providers.put(key, singletonProvider(key, key.type.getAnnotation(Singleton.class), new Provider() {
-                        @Override
-                        public Object get() {
-                            try {
-                                return constructor.newInstance(generateParams(paramProviders));
-                            } catch (Exception e) {
-                                throw new FeatherException(String.format("Can't instantiate %s", key.toString()), e);
-                            }
-                        }
-                    })
-            );
+            Provider<?> provider = new Provider() {
+                @Override
+                public Object get() {
+                    try {
+                        return constructor.newInstance(generateParams(paramProviders));
+                    } catch (Exception e) {
+                        throw new FeatherException(String.format("Can't instantiate %s", key.toString()), e);
+                    }
+                }
+            };
+
+            if (key.type.getAnnotation(Singleton.class) != null) {
+                provider = wrapSingletonProvider(key, provider);
+            }
+
+            providers.put(key, provider);
         }
         return (Provider<T>) providers.get(key);
     }
 
     private void registerProviderMethod(final Object module, final Method m) {
         final Key key = Key.of(m.getReturnType(), findQualifier(m.getAnnotations()));
+
         if (providers.containsKey(key)) {
             throw new FeatherException(String.format("%s has multiple providers, module %s", key.toString(), module.getClass()));
         }
-        Singleton singleton = m.getAnnotation(Singleton.class) != null ? m.getAnnotation(Singleton.class)
+
+        Singleton singleton = m.getAnnotation(Singleton.class) != null
+                ? m.getAnnotation(Singleton.class)
                 : m.getReturnType().getAnnotation(Singleton.class);
 
         final Provider<?>[] paramProviders = getParamProviders(
@@ -138,25 +146,29 @@ public class Feather {
                 m.getParameterAnnotations(),
                 Collections.singleton(key)
         );
-        providers.put(key, singletonProvider(key, singleton, new Provider() {
-                    @Override
-                    public Object get() {
-                        try {
-                            return m.invoke(module, generateParams(paramProviders));
-                        } catch (Exception e) {
-                            throw new FeatherException(String.format("Can't instantiate %s with provider", key.toString()), e);
-                        }
-                    }
+
+        Provider<?> provider = new Provider() {
+            @Override
+            public Object get() {
+                try {
+                    return m.invoke(module, generateParams(paramProviders));
+                } catch (Exception e) {
+                    throw new FeatherException(String.format("Can't instantiate %s with provider", key.toString()), e);
                 }
-                )
-        );
+            }
+        };
+
+        if (singleton != null) {
+            provider = wrapSingletonProvider(key, provider);
+        }
+
+        providers.put(key, provider);
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> Provider<T> singletonProvider(final Key key, Singleton singleton, final Provider<T> provider) {
-        return singleton != null ? new Provider<T>() {
+    private Provider<?> wrapSingletonProvider(final Key key, final Provider<?> provider) {
+        return new Provider() {
             @Override
-            public T get() {
+            public Object get() {
                 if (!singletons.containsKey(key)) {
                     synchronized (singletons) {
                         if (!singletons.containsKey(key)) {
@@ -164,9 +176,9 @@ public class Feather {
                         }
                     }
                 }
-                return (T) singletons.get(key);
+                return singletons.get(key);
             }
-        } : provider;
+        };
     }
 
     private Provider<?>[] getParamProviders(final Key key,
