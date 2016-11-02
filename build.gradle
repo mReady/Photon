@@ -1,8 +1,13 @@
 buildscript {
+    ext.kotlin_version = '1.0.4'
     repositories {
         jcenter()
     }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
 }
+
 
 allprojects {
     group 'net.mready.inject'
@@ -11,6 +16,7 @@ allprojects {
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: "kotlin"
 
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
