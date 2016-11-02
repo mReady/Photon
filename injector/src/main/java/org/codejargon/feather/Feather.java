@@ -263,30 +263,34 @@ public class Feather {
     }
 
     private static Constructor findInjectableConstructor(Key key) {
-        Constructor inject = null;
-        Constructor noarg = null;
+        List<Constructor> publicConstructors = new ArrayList<>();
+        List<Constructor> injectConstructors = new ArrayList<>();
 
-        for (Constructor c : key.type.getDeclaredConstructors()) {
-            if (c.isAnnotationPresent(Inject.class)) {
-                if (inject == null) {
-                    inject = c;
-                } else {
-                    throw new FeatherException(String.format("%s has multiple @Inject constructors", key.type));
-                }
-            } else if (c.getParameterTypes().length == 0) {
-                noarg = c;
+        for (Constructor constructor : key.type.getDeclaredConstructors()) {
+            if (Modifier.isPublic(constructor.getModifiers())) {
+                publicConstructors.add(constructor);
+            }
+            if (constructor.isAnnotationPresent(Inject.class)) {
+                injectConstructors.add(constructor);
             }
         }
 
-        Constructor constructor = inject != null ? inject : noarg;
+        Constructor selectedConstructor;
 
-        if (constructor != null) {
-            constructor.setAccessible(true);
-            return constructor;
+        if (injectConstructors.size() == 0 && publicConstructors.size() == 1) {
+            selectedConstructor = publicConstructors.get(0);
+        } else if (injectConstructors.size() == 1) {
+            selectedConstructor = injectConstructors.get(0);
+            selectedConstructor.setAccessible(true);
         } else {
-            throw new FeatherException(String.format("%s doesn't have an @Inject or no-arg constructor, or a module provider",
-                    key.type.getName()));
+            if (injectConstructors.size() > 1) {
+                throw new FeatherException(String.format("%s has multiple @Inject constructors", key.type));
+            } else {
+                throw new FeatherException(String.format("%s has no valid injection constructor", key.type));
+            }
         }
+
+        return selectedConstructor;
     }
 
     private static Set<Method> findProviderMethods(Class<?> type) {
