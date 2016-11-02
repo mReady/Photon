@@ -33,7 +33,7 @@ public class Feather {
         providers.put(Key.of(Feather.class), new Provider() {
                     @Override
                     public Object get() {
-                        return this;
+                        return Feather.this;
                     }
                 }
         );
