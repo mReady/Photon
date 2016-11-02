@@ -9,9 +9,9 @@ import static org.junit.Assert.assertEquals;
 public class NamedDependencyTest {
     @Test
     public void namedInstanceWithModule() {
-        Feather feather = Feather.with(new HelloWorldModule());
-        assertEquals("Hello!", feather.instance(Key.of(String.class, "hello")));
-        assertEquals("Hi!", feather.instance(Key.of(String.class, "hi")));
+        Injector injector = Injector.with(new HelloWorldModule());
+        assertEquals("Hello!", injector.instance(Key.of(String.class, "hello")));
+        assertEquals("Hi!", injector.instance(Key.of(String.class, "hi")));
     }
 
     public static class HelloWorldModule {

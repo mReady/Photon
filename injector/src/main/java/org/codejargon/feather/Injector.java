@@ -9,20 +9,20 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Feather {
+public class Injector {
 
     /**
      * Constructs the injector with configuration modules
      */
-    public static Feather with(Object... modules) {
+    public static Injector with(Object... modules) {
         return with(Arrays.asList(modules));
     }
 
     /**
      * Constructs the injector with configuration modules
      */
-    public static Feather with(Iterable<?> modules) {
-        return new Feather(modules);
+    public static Injector with(Iterable<?> modules) {
+        return new Injector(modules);
     }
 
 
@@ -30,18 +30,18 @@ public class Feather {
     private final Map<Key, Object> singletons = new ConcurrentHashMap<>();
     private final Map<Class, FieldWrapper[]> injectFields = new ConcurrentHashMap<>(0);
 
-    private Feather(Iterable<?> modules) {
-        providers.put(Key.of(Feather.class), new Provider() {
+    private Injector(Iterable<?> modules) {
+        providers.put(Key.of(Injector.class), new Provider() {
                     @Override
                     public Object get() {
-                        return Feather.this;
+                        return Injector.this;
                     }
                 }
         );
 
         for (final Object module : modules) {
             if (module instanceof Class) {
-                throw new FeatherException(String.format("%s provided as class instead of an instance.",
+                throw new InjectorException(String.format("%s provided as class instead of an instance.",
                         ((Class) module).getName()));
             }
             for (Method providerMethod : findProviderMethods(module.getClass())) {
@@ -91,7 +91,7 @@ public class Feather {
             try {
                 field.set(target, wrapper.injectProvider ? provider(key) : instance(key));
             } catch (Exception e) {
-                throw new FeatherException(String.format("Can't inject field %s in %s",
+                throw new InjectorException(String.format("Can't inject field %s in %s",
                         field.getName(),
                         target.getClass().getName()), e);
             }
@@ -116,7 +116,7 @@ public class Feather {
                     try {
                         return constructor.newInstance(generateParams(paramProviders));
                     } catch (Exception e) {
-                        throw new FeatherException(String.format("Can't instantiate %s", key.toString()), e);
+                        throw new InjectorException(String.format("Can't instantiate %s", key.toString()), e);
                     }
                 }
             };
@@ -134,7 +134,7 @@ public class Feather {
         final Key key = Key.of(m.getReturnType(), findQualifier(m.getAnnotations()));
 
         if (providers.containsKey(key)) {
-            throw new FeatherException(String.format("%s has multiple providers, module %s", key.toString(), module.getClass()));
+            throw new InjectorException(String.format("%s has multiple providers, module %s", key.toString(), module.getClass()));
         }
 
         Singleton singleton = m.getAnnotation(Singleton.class) != null
@@ -155,7 +155,7 @@ public class Feather {
                 try {
                     return m.invoke(module, generateParams(paramProviders));
                 } catch (Exception e) {
-                    throw new FeatherException(String.format("Can't instantiate %s with provider", key.toString()), e);
+                    throw new InjectorException(String.format("Can't instantiate %s with provider", key.toString()), e);
                 }
             }
         };
@@ -202,7 +202,7 @@ public class Feather {
                 final Set<Key> newChain = appendKey(chain, key);
 
                 if (newChain.contains(newKey)) {
-                    throw new FeatherException(String.format("Circular dependency: %s", renderChain(newChain, newKey)));
+                    throw new InjectorException(String.format("Circular dependency: %s", renderChain(newChain, newKey)));
                 }
 
                 providers[i] = new Provider() {
@@ -283,9 +283,9 @@ public class Feather {
             selectedConstructor.setAccessible(true);
         } else {
             if (injectConstructors.size() > 1) {
-                throw new FeatherException(String.format("%s has multiple @Inject constructors", key.type));
+                throw new InjectorException(String.format("%s has multiple @Inject constructors", key.type));
             } else {
-                throw new FeatherException(String.format("%s has no valid injection constructor", key.type));
+                throw new InjectorException(String.format("%s has no valid injection constructor", key.type));
             }
         }
 

@@ -8,16 +8,16 @@ import javax.inject.Provider;
 import static org.junit.Assert.assertNotNull;
 
 public class CircularDependencyTest {
-    @Test(expected = FeatherException.class)
+    @Test(expected = InjectorException.class)
     public void circularDependencyCaught() {
-        Feather feather = Feather.with();
-        feather.instance(Circle1.class);
+        Injector injector = Injector.with();
+        injector.instance(Circle1.class);
     }
 
     @Test
     public void circularDependencyWithProviderAllowed() {
-        Feather feather = Feather.with();
-        CircleWithProvider1 circle1 = feather.instance(CircleWithProvider1.class);
+        Injector injector = Injector.with();
+        CircleWithProvider1 circle1 = injector.instance(CircleWithProvider1.class);
         assertNotNull(circle1.circleWithProvider2.circleWithProvider1.get());
     }
 

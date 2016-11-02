@@ -9,21 +9,21 @@ import static org.junit.Assert.assertNotNull;
 public class DependencyTest {
     @Test
     public void dependencyInstance() {
-        Feather feather = Feather.with();
-        assertNotNull(feather.instance(Plain.class));
+        Injector injector = Injector.with();
+        assertNotNull(injector.instance(Plain.class));
     }
 
     @Test
     public void provider() {
-        Feather feather = Feather.with();
-        Provider<Plain> plainProvider = feather.provider(Plain.class);
+        Injector injector = Injector.with();
+        Provider<Plain> plainProvider = injector.provider(Plain.class);
         assertNotNull(plainProvider.get());
     }
 
-    @Test(expected = FeatherException.class)
+    @Test(expected = InjectorException.class)
     public void unknown() {
-        Feather feather = Feather.with();
-        feather.instance(Unknown.class);
+        Injector injector = Injector.with();
+        injector.instance(Unknown.class);
     }
 
     public static class Plain {

@@ -7,15 +7,15 @@ import static org.junit.Assert.assertEquals;
 public class ModuleOverrideTest {
     @Test
     public void dependencyOverridenByModule() {
-        Feather feather = Feather.with(new PlainStubOverrideModule());
-        assertEquals(PlainStub.class, feather.instance(Plain.class).getClass());
+        Injector injector = Injector.with(new PlainStubOverrideModule());
+        assertEquals(PlainStub.class, injector.instance(Plain.class).getClass());
     }
 
 
     @Test
     public void moduleOverwrittenBySubClass() {
-        assertEquals("foo", Feather.with(new FooModule()).instance(String.class));
-        assertEquals("bar", Feather.with(new FooOverrideModule()).instance(String.class));
+        assertEquals("foo", Injector.with(new FooModule()).instance(String.class));
+        assertEquals("bar", Injector.with(new FooOverrideModule()).instance(String.class));
     }
 
     public static class Plain {

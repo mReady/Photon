@@ -9,8 +9,8 @@ import static org.junit.Assert.assertNotNull;
 public class TransitiveDependencyTest {
     @Test
     public void transitive() {
-        Feather feather = Feather.with();
-        A a = feather.instance(A.class);
+        Injector injector = Injector.with();
+        A a = injector.instance(A.class);
         assertNotNull(a.b.c);
     }
 

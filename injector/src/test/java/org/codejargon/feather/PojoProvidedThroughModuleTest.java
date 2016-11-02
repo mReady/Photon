@@ -5,16 +5,16 @@ import org.junit.Test;
 import static org.junit.Assert.assertNotNull;
 
 public class PojoProvidedThroughModuleTest {
-    @Test(expected = FeatherException.class)
+    @Test(expected = InjectorException.class)
     public void pojoNotProvided() {
-        Feather feather = Feather.with();
-        feather.instance(Pojo.class);
+        Injector injector = Injector.with();
+        injector.instance(Pojo.class);
     }
 
     @Test
     public void pojoProvided() {
-        Feather feather = Feather.with(new Module());
-        assertNotNull(feather.instance(Pojo.class));
+        Injector injector = Injector.with(new Module());
+        assertNotNull(injector.instance(Pojo.class));
     }
 
     public static class Module {

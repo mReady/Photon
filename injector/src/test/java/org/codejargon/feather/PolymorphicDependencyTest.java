@@ -10,9 +10,9 @@ import static org.junit.Assert.assertEquals;
 public class PolymorphicDependencyTest {
     @Test
     public void multipleImplementations() {
-        Feather feather = Feather.with(new Module());
-        assertEquals(FooA.class, feather.instance(Key.of(Foo.class, "A")).getClass());
-        assertEquals(FooB.class, feather.instance(Key.of(Foo.class, "B")).getClass());
+        Injector injector = Injector.with(new Module());
+        assertEquals(FooA.class, injector.instance(Key.of(Foo.class, "A")).getClass());
+        assertEquals(FooB.class, injector.instance(Key.of(Foo.class, "B")).getClass());
     }
 
     public static class Module {

@@ -3,9 +3,9 @@ package org.codejargon.feather;
 import org.junit.Test;
 
 public class AmbiguousModuleTest {
-    @Test(expected = FeatherException.class)
+    @Test(expected = InjectorException.class)
     public void ambiguousModule() {
-        Feather.with(new Module());
+        Injector.with(new Module());
     }
 
     public static class Module {

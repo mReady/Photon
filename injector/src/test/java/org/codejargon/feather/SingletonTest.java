@@ -11,20 +11,20 @@ import static org.junit.Assert.assertNotEquals;
 public class SingletonTest {
     @Test
     public void nonSingleton() {
-        Feather feather = Feather.with();
-        assertNotEquals(feather.instance(Plain.class), feather.instance(Plain.class));
+        Injector injector = Injector.with();
+        assertNotEquals(injector.instance(Plain.class), injector.instance(Plain.class));
     }
 
     @Test
     public void singleton() {
-        Feather feather = Feather.with();
-        assertEquals(feather.instance(SingletonObj.class), feather.instance(SingletonObj.class));
+        Injector injector = Injector.with();
+        assertEquals(injector.instance(SingletonObj.class), injector.instance(SingletonObj.class));
     }
 
     @Test
     public void singletonThroughProvider() {
-        Feather feather = Feather.with();
-        Provider<SingletonObj> provider = feather.provider(SingletonObj.class);
+        Injector injector = Injector.with();
+        Provider<SingletonObj> provider = injector.provider(SingletonObj.class);
         assertEquals(provider.get(), provider.get());
     }
 

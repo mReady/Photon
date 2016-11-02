@@ -9,9 +9,9 @@ import static org.junit.Assert.assertNotNull;
 public class FieldInjectionTest {
     @Test
     public void fieldsInjected() {
-        Feather feather = Feather.with();
+        Injector injector = Injector.with();
         Target target = new Target();
-        feather.injectFields(target);
+        injector.injectFields(target);
         assertNotNull(target.a);
     }
 

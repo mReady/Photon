@@ -12,23 +12,23 @@ import static org.junit.Assert.assertEquals;
 public class QualifiedDependencyTest {
     @Test
     public void qualifiedInstances() {
-        Feather feather = Feather.with(new Module());
-        assertEquals(FooA.class, feather.instance(Key.of(Foo.class, A.class)).getClass());
-        assertEquals(FooB.class, feather.instance(Key.of(Foo.class, B.class)).getClass());
+        Injector injector = Injector.with(new Module());
+        assertEquals(FooA.class, injector.instance(Key.of(Foo.class, A.class)).getClass());
+        assertEquals(FooB.class, injector.instance(Key.of(Foo.class, B.class)).getClass());
     }
 
     @Test
     public void injectedQualified() {
-        Feather feather = Feather.with(new Module());
-        Dummy dummy = feather.instance(Dummy.class);
+        Injector injector = Injector.with(new Module());
+        Dummy dummy = injector.instance(Dummy.class);
         assertEquals(FooB.class, dummy.foo.getClass());
     }
 
     @Test
     public void fieldInjectedQualified() {
-        Feather feather = Feather.with(new Module());
+        Injector injector = Injector.with(new Module());
         DummyTestUnit dummy = new DummyTestUnit();
-        feather.injectFields(dummy);
+        injector.injectFields(dummy);
         assertEquals(FooA.class, dummy.foo.getClass());
     }
 

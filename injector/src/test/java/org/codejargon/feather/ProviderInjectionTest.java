@@ -10,8 +10,8 @@ import static org.junit.Assert.assertNotNull;
 public class ProviderInjectionTest {
     @Test
     public void providerInjected() {
-        Feather feather = Feather.with();
-        assertNotNull(feather.instance(A.class).plainProvider.get());
+        Injector injector = Injector.with();
+        assertNotNull(injector.instance(A.class).plainProvider.get());
     }
 
     public static class A {
