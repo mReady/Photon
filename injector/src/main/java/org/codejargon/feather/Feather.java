@@ -10,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Feather {
+
     /**
      * Constructs the injector with configuration modules
      */
@@ -40,7 +41,8 @@ public class Feather {
 
         for (final Object module : modules) {
             if (module instanceof Class) {
-                throw new FeatherException(String.format("%s provided as class instead of an instance.", ((Class) module).getName()));
+                throw new FeatherException(String.format("%s provided as class instead of an instance.",
+                        ((Class) module).getName()));
             }
             for (Method providerMethod : findProviderMethods(module.getClass())) {
                 registerProviderMethod(module, providerMethod);
@@ -184,19 +186,25 @@ public class Feather {
     private Provider<?>[] getParamProviders(final Key key,
                                             Class<?>[] paramClasses, Type[] paramTypes, Annotation[][] paramAnnotations,
                                             final Set<Key> chain) {
+
         Provider<?>[] providers = new Provider<?>[paramTypes.length];
-        for (int i = 0; i < paramTypes.length; ++i) {
+
+        for (int i = 0; i < paramTypes.length; i++) {
             Class<?> parameterClass = paramClasses[i];
             Annotation qualifier = findQualifier(paramAnnotations[i]);
-            Class<?> providerType = Provider.class.equals(parameterClass) ?
-                    (Class<?>) ((ParameterizedType) paramTypes[i]).getActualTypeArguments()[0] :
-                    null;
+
+            Class<?> providerType = Provider.class.equals(parameterClass)
+                    ? (Class<?>) ((ParameterizedType) paramTypes[i]).getActualTypeArguments()[0]
+                    : null;
+
             if (providerType == null) {
                 final Key newKey = Key.of(parameterClass, qualifier);
                 final Set<Key> newChain = appendKey(chain, key);
+
                 if (newChain.contains(newKey)) {
                     throw new FeatherException(String.format("Circular dependency: %s", renderChain(newChain, newKey)));
                 }
+
                 providers[i] = new Provider() {
                     @Override
                     public Object get() {
@@ -205,6 +213,7 @@ public class Feather {
                 };
             } else {
                 final Key newKey = Key.of(providerType, qualifier);
+
                 providers[i] = new Provider() {
                     @Override
                     public Object get() {
@@ -213,6 +222,7 @@ public class Feather {
                 };
             }
         }
+
         return providers;
     }
 
@@ -222,16 +232,6 @@ public class Feather {
             params[i] = paramProviders[i].get();
         }
         return params;
-    }
-
-    private static Set<Key> appendKey(Set<Key> set, Key newKey) {
-        if (set != null && !set.isEmpty()) {
-            Set<Key> appended = new LinkedHashSet<>(set);
-            appended.add(newKey);
-            return appended;
-        } else {
-            return Collections.singleton(newKey);
-        }
     }
 
     private static FieldWrapper[] findInjectableFields(Class<?> target) {
@@ -259,14 +259,6 @@ public class Feather {
                     Key.of(providerType != null ? providerType : field.getType(), findQualifier(field.getAnnotations())));
         }
         return wrappers;
-    }
-
-    private static String renderChain(Set<Key> chain, Key lastKey) {
-        StringBuilder chainString = new StringBuilder();
-        for (Key key : chain) {
-            chainString.append(key.toString()).append(" -> ");
-        }
-        return chainString.append(lastKey.toString()).toString();
     }
 
     private static Constructor findInjectableConstructor(Key key) {
@@ -332,6 +324,24 @@ public class Feather {
             }
         }
         return false;
+    }
+
+    private static Set<Key> appendKey(Set<Key> set, Key newKey) {
+        if (set != null && !set.isEmpty()) {
+            Set<Key> appended = new LinkedHashSet<>(set);
+            appended.add(newKey);
+            return appended;
+        } else {
+            return Collections.singleton(newKey);
+        }
+    }
+
+    private static String renderChain(Set<Key> chain, Key lastKey) {
+        StringBuilder chainString = new StringBuilder();
+        for (Key key : chain) {
+            chainString.append(key.toString()).append(" -> ");
+        }
+        return chainString.append(lastKey.toString()).toString();
     }
 
     private final static class FieldWrapper {
