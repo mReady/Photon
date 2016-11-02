@@ -1,0 +1,25 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+}
+
+allprojects {
+    group 'net.mready.inject'
+    version '1.0-SNAPSHOT'
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+
+    repositories {
+        jcenter()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
