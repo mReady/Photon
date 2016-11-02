@@ -1,4 +1,4 @@
-package org.codejargon.feather;
+package net.mready.inject;
 
 public class InjectorException extends RuntimeException {
     InjectorException(String message) {

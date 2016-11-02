@@ -1,4 +1,4 @@
-package org.codejargon.feather;
+package net.mready.inject;
 
 import javax.inject.Named;
 import java.lang.annotation.Annotation;

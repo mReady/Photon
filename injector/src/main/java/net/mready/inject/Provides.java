@@ -1,4 +1,4 @@
-package org.codejargon.feather;
+package net.mready.inject;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
