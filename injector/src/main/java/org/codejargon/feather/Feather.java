@@ -27,7 +27,7 @@ public class Feather {
 
     private final Map<Key, Provider<?>> providers = new ConcurrentHashMap<>();
     private final Map<Key, Object> singletons = new ConcurrentHashMap<>();
-    private final Map<Class, Object[][]> injectFields = new ConcurrentHashMap<>(0);
+    private final Map<Class, FieldWrapper[]> injectFields = new ConcurrentHashMap<>(0);
 
     private Feather(Iterable<?> modules) {
         providers.put(Key.of(Feather.class), new Provider() {
@@ -81,13 +81,13 @@ public class Feather {
      */
     public void injectFields(Object target) {
         if (!injectFields.containsKey(target.getClass())) {
-            injectFields.put(target.getClass(), injectFields(target.getClass()));
+            injectFields.put(target.getClass(), findInjectableFields(target.getClass()));
         }
-        for (Object[] f : injectFields.get(target.getClass())) {
-            Field field = (Field) f[0];
-            Key key = (Key) f[2];
+        for (FieldWrapper wrapper : injectFields.get(target.getClass())) {
+            Field field = wrapper.field;
+            Key key = wrapper.key;
             try {
-                field.set(target, (boolean) f[1] ? provider(key) : instance(key));
+                field.set(target, wrapper.injectProvider ? provider(key) : instance(key));
             } catch (Exception e) {
                 throw new FeatherException(String.format("Can't inject field %s in %s",
                         field.getName(),
@@ -222,25 +222,8 @@ public class Feather {
         }
     }
 
-    private static Object[][] injectFields(Class<?> target) {
-        Set<Field> fields = findInjectableFields(target);
-        Object[][] fs = new Object[fields.size()][];
-        int i = 0;
-        for (Field f : fields) {
-            Class<?> providerType = f.getType().equals(Provider.class) ?
-                    (Class<?>) ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0] :
-                    null;
-            fs[i++] = new Object[]{
-                    f,
-                    providerType != null,
-                    Key.of(providerType != null ? providerType : f.getType(), findQualifier(f.getAnnotations()))
-            };
-        }
-        return fs;
-    }
-
-    private static Set<Field> findInjectableFields(Class<?> type) {
-        Class<?> current = type;
+    private static FieldWrapper[] findInjectableFields(Class<?> target) {
+        Class<?> current = target;
         Set<Field> fields = new HashSet<>();
         while (!current.equals(Object.class)) {
             for (Field field : current.getDeclaredFields()) {
@@ -251,7 +234,19 @@ public class Feather {
             }
             current = current.getSuperclass();
         }
-        return fields;
+
+        FieldWrapper[] wrappers = new FieldWrapper[fields.size()];
+        int i = 0;
+        for (Field field : fields) {
+            Class<?> providerType = field.getType().equals(Provider.class) ?
+                    (Class<?>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0] :
+                    null;
+            wrappers[i++] = new FieldWrapper(
+                    field,
+                    providerType != null,
+                    Key.of(providerType != null ? providerType : field.getType(), findQualifier(field.getAnnotations())));
+        }
+        return wrappers;
     }
 
     private static String renderChain(Set<Key> chain, Key lastKey) {
@@ -325,6 +320,18 @@ public class Feather {
             }
         }
         return false;
+    }
+
+    private final static class FieldWrapper {
+        final Field field;
+        final boolean injectProvider;
+        final Key key;
+
+        FieldWrapper(Field field, boolean injectProvider, Key key) {
+            this.field = field;
+            this.injectProvider = injectProvider;
+            this.key = key;
+        }
     }
 
 }
