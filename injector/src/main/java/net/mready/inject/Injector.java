@@ -15,39 +15,26 @@ public class Injector {
      * Constructs the injector with configuration modules
      */
     public static Injector with(Object... modules) {
-        return with(Arrays.asList(modules));
-    }
-
-    /**
-     * Constructs the injector with configuration modules
-     */
-    public static Injector with(Iterable<?> modules) {
-        return new Injector(modules);
+        return new Injector(Arrays.asList(modules), false);
     }
 
 
     private final Map<Key, Provider<?>> providers = new ConcurrentHashMap<>();
     private final Map<Key, Object> singletons = new ConcurrentHashMap<>();
     private final Map<Class, FieldWrapper[]> injectFields = new ConcurrentHashMap<>(0);
+    private final boolean autoInjectFields;
 
-    private Injector(Iterable<?> modules) {
+    private Injector(Iterable<?> modules, boolean autoInjectFields) {
+        this.autoInjectFields = autoInjectFields;
+
         providers.put(Key.of(Injector.class), new Provider() {
-                    @Override
-                    public Object get() {
-                        return Injector.this;
-                    }
-                }
-        );
+            @Override
+            public Object get() {
+                return Injector.this;
+            }
+        });
 
-        for (final Object module : modules) {
-            if (module instanceof Class) {
-                throw new InjectorException(String.format("%s provided as class instead of an instance.",
-                        ((Class) module).getName()));
-            }
-            for (Method providerMethod : findProviderMethods(module.getClass())) {
-                registerProviderMethod(module, providerMethod);
-            }
-        }
+        registerModules(modules);
     }
 
     /**
@@ -98,48 +85,37 @@ public class Injector {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> Provider<T> getProvider(final Key<T> key, Set<Key> chain) {
-        if (!providers.containsKey(key)) {
+    private void registerModules(Iterable<?> modules) {
+        List<Provider<?>> eagerProviders = new ArrayList<>();
 
-            final Constructor constructor = findInjectableConstructor(key);
-
-            final Provider<?>[] paramProviders = getParamProviders(key,
-                    constructor.getParameterTypes(),
-                    constructor.getGenericParameterTypes(),
-                    constructor.getParameterAnnotations(),
-                    chain);
-
-            Provider<?> provider = new Provider() {
-                @Override
-                public Object get() {
-                    try {
-                        return constructor.newInstance(generateParams(paramProviders));
-                    } catch (Exception e) {
-                        throw new InjectorException(String.format("Can't instantiate %s", key.toString()), e);
-                    }
-                }
-            };
-
-            if (key.type.getAnnotation(Singleton.class) != null) {
-                provider = wrapSingletonProvider(key, provider);
+        for (final Object module : modules) {
+            if (module instanceof Class) {
+                throw new InjectorException(String.format("%s provided as class instead of an instance.",
+                        ((Class) module).getName()));
             }
-
-            providers.put(key, provider);
+            for (Method providerMethod : findProviderMethods(module.getClass())) {
+                Provider<?> provider = registerProviderMethod(module, providerMethod);
+                if (providerMethod.isAnnotationPresent(EagerSingleton.class)) {
+                    eagerProviders.add(provider);
+                }
+            }
         }
-        return (Provider<T>) providers.get(key);
+
+        for (Provider<?> provider : eagerProviders) {
+            provider.get();
+        }
     }
 
-    private void registerProviderMethod(final Object module, final Method m) {
+    private Provider<?> registerProviderMethod(final Object module, final Method m) {
         final Key key = Key.of(m.getReturnType(), findQualifier(m.getAnnotations()));
 
         if (providers.containsKey(key)) {
             throw new InjectorException(String.format("%s has multiple providers, module %s", key.toString(), module.getClass()));
         }
 
-        Singleton singleton = m.getAnnotation(Singleton.class) != null
-                ? m.getAnnotation(Singleton.class)
-                : m.getReturnType().getAnnotation(Singleton.class);
+        boolean singleton = m.isAnnotationPresent(EagerSingleton.class)
+                || m.isAnnotationPresent(Singleton.class)
+                || m.getReturnType().isAnnotationPresent(Singleton.class);
 
         final Provider<?>[] paramProviders = getParamProviders(
                 key,
@@ -160,27 +136,49 @@ public class Injector {
             }
         };
 
-        if (singleton != null) {
-            provider = wrapSingletonProvider(key, provider);
+        if (singleton) {
+            provider = new SingletonProvider(key, provider);
         }
 
         providers.put(key, provider);
+
+        return provider;
     }
 
-    private Provider<?> wrapSingletonProvider(final Key key, final Provider<?> provider) {
-        return new Provider() {
-            @Override
-            public Object get() {
-                if (!singletons.containsKey(key)) {
-                    synchronized (singletons) {
-                        if (!singletons.containsKey(key)) {
-                            singletons.put(key, provider.get());
+    @SuppressWarnings("unchecked")
+    private <T> Provider<T> getProvider(final Key<T> key, Set<Key> chain) {
+        if (!providers.containsKey(key)) {
+
+            final Constructor constructor = findInjectableConstructor(key);
+
+            final Provider<?>[] paramProviders = getParamProviders(key,
+                    constructor.getParameterTypes(),
+                    constructor.getGenericParameterTypes(),
+                    constructor.getParameterAnnotations(),
+                    chain);
+
+            Provider<?> provider = new Provider() {
+                @Override
+                public Object get() {
+                    try {
+                        Object instance = constructor.newInstance(generateParams(paramProviders));
+                        if (autoInjectFields) {
+                            injectFields(instance);
                         }
+                        return instance;
+                    } catch (Exception e) {
+                        throw new InjectorException(String.format("Can't instantiate %s", key.toString()), e);
                     }
                 }
-                return singletons.get(key);
+            };
+
+            if (key.type.isAnnotationPresent(Singleton.class)) {
+                provider = new SingletonProvider(key, provider);
             }
-        };
+
+            providers.put(key, provider);
+        }
+        return (Provider<T>) providers.get(key);
     }
 
     private Provider<?>[] getParamProviders(final Key key,
@@ -344,6 +342,28 @@ public class Injector {
         return chainString.append(lastKey.toString()).toString();
     }
 
+    private class SingletonProvider implements Provider<Object> {
+        final Key key;
+        final Provider<?> provider;
+
+        SingletonProvider(Key key, Provider<?> provider) {
+            this.key = key;
+            this.provider = provider;
+        }
+
+        @Override
+        public Object get() {
+            if (!singletons.containsKey(key)) {
+                synchronized (singletons) {
+                    if (!singletons.containsKey(key)) {
+                        singletons.put(key, provider.get());
+                    }
+                }
+            }
+            return singletons.get(key);
+        }
+    }
+
     private final static class FieldWrapper {
         final Field field;
         final boolean injectProvider;
@@ -356,4 +376,29 @@ public class Injector {
         }
     }
 
+    public final static class Builder {
+        private final List<Object> modules = new ArrayList<>();
+        private boolean injectFields = false;
+
+        public Builder modules(Object... modules) {
+            Collections.addAll(this.modules, modules);
+            return this;
+        }
+
+        public Builder modules(Iterable<Object> modules) {
+            for (Object module : modules) {
+                this.modules.add(module);
+            }
+            return this;
+        }
+
+        public Builder autoInjectFields(boolean enabled) {
+            this.injectFields = enabled;
+            return this;
+        }
+
+        public Injector build() {
+            return new Injector(new ArrayList<>(modules), injectFields);
+        }
+    }
 }
