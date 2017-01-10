@@ -4,14 +4,15 @@ buildscript {
         jcenter()
     }
     dependencies {
+        classpath 'com.novoda:bintray-release:0.4.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
 
 allprojects {
-    group 'net.mready.photon'
-    version '1.0.0-SNAPSHOT'
+    group GROUP
+    version VERSION_NAME
 }
 
 subprojects {
