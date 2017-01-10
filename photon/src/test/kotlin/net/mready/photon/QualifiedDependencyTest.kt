@@ -1,4 +1,4 @@
-package net.mready.inject
+package net.mready.photon
 
 
 import org.junit.Assert.assertEquals

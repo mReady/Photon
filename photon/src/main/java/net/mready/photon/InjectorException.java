@@ -1,4 +1,4 @@
-package net.mready.inject;
+package net.mready.photon;
 
 public class InjectorException extends RuntimeException {
     InjectorException(String message) {

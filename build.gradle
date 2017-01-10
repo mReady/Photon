@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '1.0.5'
+    ext.kotlin_version = '1.0.6'
     repositories {
         jcenter()
     }
@@ -10,8 +10,8 @@ buildscript {
 
 
 allprojects {
-    group 'net.mready.inject'
-    version '1.0-SNAPSHOT'
+    group 'net.mready.photon'
+    version '1.0.0-SNAPSHOT'
 }
 
 subprojects {

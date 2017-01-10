@@ -1,4 +1,4 @@
-package net.mready.inject;
+package net.mready.photon;
 
 import javax.inject.Inject;
 import javax.inject.Provider;

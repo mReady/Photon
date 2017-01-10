@@ -1,4 +1,4 @@
-package net.mready.inject;
+package net.mready.photon;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
