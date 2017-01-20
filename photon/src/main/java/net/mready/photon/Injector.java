@@ -93,9 +93,16 @@ public class Injector {
                 throw new InjectorException(String.format("%s provided as class instead of an instance.",
                         ((Class) module).getName()));
             }
-            for (Method providerMethod : findProviderMethods(module.getClass())) {
-                Provider<?> provider = registerProviderMethod(module, providerMethod);
-                if (providerMethod.isAnnotationPresent(EagerSingleton.class)) {
+
+            Set<Method> providerMethods = findProviderMethods(module.getClass());
+            if (providerMethods.size() == 0) {
+                throw new InjectorException(String.format("No @Provides methods found in module %s.",
+                        module.getClass().getName()));
+            }
+
+            for (Method method : providerMethods) {
+                Provider<?> provider = registerProviderMethod(module, method);
+                if (method.isAnnotationPresent(EagerSingleton.class)) {
                     eagerProviders.add(provider);
                 }
             }

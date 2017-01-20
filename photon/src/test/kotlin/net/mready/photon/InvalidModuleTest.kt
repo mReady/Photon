@@ -2,13 +2,18 @@ package net.mready.photon
 
 import org.junit.Test
 
-class AmbiguousModuleTest {
+class InvalidModuleTest {
     @Test(expected = InjectorException::class)
     fun ambiguousModule() {
-        Injector.with(Module())
+        Injector.with(AmbiguousModule())
     }
 
-    class Module {
+    @Test(expected = InjectorException::class)
+    fun emptyModule() {
+        Injector.with(object {})
+    }
+
+    class AmbiguousModule {
         @Provides
         fun foo(): String = "foo"
 

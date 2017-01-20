@@ -4,7 +4,7 @@ Photon is a lightweight reflective dependency injection ([JSR-330](https://jcp.o
 library for Java and Android.
 
 ```gladle
-compile 'net.mready.photon:photon:1.0.0'
+compile 'net.mready.photon:photon:1.0.1'
 ```
 
 *This project is based on [Feather](http://zsoltherpai.github.io/feather)*
