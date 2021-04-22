@@ -1,4 +1,4 @@
-apply plugin: 'com.novoda.bintray-release'
+apply plugin: 'com.vanniktech.maven.publish'
 
 dependencies {
     api 'javax.inject:javax.inject:1'
@@ -6,15 +6,4 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     testImplementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
-}
-
-publish {
-    userOrg = POM_DEVELOPER_ID
-    groupId = GROUP
-    artifactId = POM_ARTIFACT_ID
-    publishVersion = VERSION_NAME
-    uploadName = POM_NAME
-    licences = ['Apache-2.0']
-    desc = POM_DESCRIPTION
-    website = POM_URL
 }
